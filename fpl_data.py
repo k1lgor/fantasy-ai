@@ -56,12 +56,21 @@ def fetch_squad_analysis_data(team_id: int) -> Dict[str, Any]:
     Fetch comprehensive data for squad analysis:
     - Next gameweek
     - Bootstrap (players, teams)
-    - Fixtures for next GW
+    - Fixtures for next 5 GWs
     - User team data
     """
     bootstrap = get_bootstrap()
     next_gw = get_next_gameweek(bootstrap)
-    fixtures = get_fixtures(next_gw)
+
+    # Fetch fixtures for next 5 gameweeks
+    all_fixtures = []
+    for gw in range(next_gw, min(next_gw + 5, 39)):  # Max GW is 38
+        try:
+            gw_fixtures = get_fixtures(gw)
+            all_fixtures.extend(gw_fixtures)
+        except Exception:
+            break  # Stop if no more fixtures available
+
     team = get_user_team(team_id)
     current_gw = next(
         (e["id"] for e in bootstrap["events"] if e["is_current"]),
@@ -73,6 +82,6 @@ def fetch_squad_analysis_data(team_id: int) -> Dict[str, Any]:
         "current_gw": current_gw,
         "picks": picks,
         "bootstrap": bootstrap,
-        "fixtures": fixtures,
+        "fixtures": all_fixtures,
         "team": team,
     }
