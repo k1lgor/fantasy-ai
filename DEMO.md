@@ -1,14 +1,14 @@
----
-
 ## 1. **Injury & Availability Report**
 
 - **J. Timber (ARS)**
+
   - Status: Doubtful
   - Chance of Playing: 75%
   - Latest News: Knock - 75% chance of playing
   - **URGENCY LEVEL**: Medium (monitor)
 
 - **Muñoz (CRY)**
+
   - Status: Injured
   - Chance of Playing: 0%
   - Latest News: Knee injury - Expected back 17 Jan
@@ -25,6 +25,7 @@
 ## 2. **Potential Replacements for Current Squad**
 
 **Goalkeeper → Current Player: Petrović (BOU)**
+
 - **Replacement Options**:
   1. **Pickford (EVE)**
      - Price: £5.5M, Price Difference: +£1.0M
@@ -33,6 +34,7 @@
      - Reason: Consistent form, decent fixtures after GW17.
 
 **Defender → Current Player: Muñoz (CRY)**
+
 - **Replacement Options**:
   1. **Tarkowski (EVE)**
      - Price: £5.4M, Price Difference: -£0.7M
@@ -41,6 +43,7 @@
      - Reason: High form, good fixture run after GW17.
 
 **Midfielder → Current Player: Minteh (BHA)**
+
 - **Replacement Options**:
   1. **B. Fernandes (MUN)**
      - Price: £9.1M, Price Difference: +£2.9M
@@ -49,6 +52,7 @@
      - Reason: Excellent form, favorable fixtures.
 
 **Forward → Current Player: Mateta (CRY)**
+
 - **Replacement Options**:
   1. **Calvert-Lewin (LEE)**
      - Price: £5.6M, Price Difference: -£2.4M
@@ -81,6 +85,7 @@
 ## 4. **Captain & Vice-Captain**
 
 - **Captain: Haaland (MCI)**
+
   - Justification: Proven goal scorer, consistent form, favorable fixture against CRY.
 
 - **Vice-Captain: Foden (MCI)**
@@ -118,10 +123,12 @@
 - **Bank**: £0.7M
 
 ### Players Out
+
 1. **Muñoz (CRY)**
    - Reason: Long-term injury.
 
 ### Players In
+
 1. **Tarkowski (EVE)**
    - Cost: £5.4M
    - Net Cost: -£0.7M
