@@ -54,6 +54,38 @@ For each position (GK, DEF, MID, FWD), the AI provides:
 - Price comparisons and budget impact
 - Fixture difficulty analysis for each option
 
+## Data Flow
+
+```mermaid
+graph TD;
+    A[User Request] --> B[fetch_squad_analysis_data]
+    B --> C[Get Bootstrap Data]
+    C --> D[Process Player Data]
+    D --> E[Top 10 per Position]
+    E --> F[AI Prompt]
+    B --> G[Fetch Next 5 GWs Fixtures]
+    G --> H[Build Fixture Map]
+    H --> I[5-Game Difficulty]
+    I --> F
+    B --> K[Get User Team & Picks]
+    K --> L[Identify Injuries]
+    L --> M[Flagged Players List]
+    M --> F
+    F --> O[GPT Analysis]
+    O --> P[Comprehensive Recommend]
+```
+
+## Status Code Reference
+
+| Code | Meaning      | Action            |
+| ---- | ------------ | ----------------- |
+| `a`  | Available    | No concern        |
+| `d`  | Doubtful     | Monitor closely   |
+| `i`  | Injured      | Consider transfer |
+| `u`  | Unavailable  | Must transfer     |
+| `s`  | Suspended    | Must transfer     |
+| `n`  | Not in squad | Must transfer     |
+
 ## 🚀 Quick Start (Local)
 
 1. **Clone**
