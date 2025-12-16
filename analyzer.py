@@ -18,7 +18,7 @@ def get_openai_client() -> openai.OpenAI:
     return openai.OpenAI(api_key=api_key)
 
 
-def generate_squad_recommendation(team_id: int, model: str = "gpt-4o") -> str:
+def generate_squad_recommendation(team_id: int, model: str = "gpt-5.2") -> str:
     """
     Fetch FPL data and use GPT-4o to generate squad recommendations.
 
@@ -176,104 +176,108 @@ def generate_squad_recommendation(team_id: int, model: str = "gpt-4o") -> str:
         else "None"
     )
 
-    prompt = f"""You are an elite Fantasy Premier League strategist.
+    prompt = f"""You are an elite Fantasy Premier League decision engine.
 
-Your task is to generate **optimal recommendations specifically for the user's current squad**, using all provided data.
-Focus on maximizing total expected points while respecting budget, squad rules, and available transfers.
+PRIMARY OBJECTIVE:
+Maximize expected total points over the next 5 gameweeks.
 
-**CRITICAL: Pay special attention to injured and flagged players. Always provide specific replacement options.**
+SECONDARY OBJECTIVES (tie-breakers, in order):
+1. Captaincy upside and ceiling
+2. Minutes security
+3. Fixture swing exploitation
+4. Squad flexibility for future GWs
+5. Value preservation (avoid price drops)
 
-### OUTPUT (Markdown)
+RANK-AWARE STRATEGY:
+Determine strategic posture from rank:
+- Rank < 50k → DEFENSIVE (block EO, minimize variance)
+- Rank 50k–500k → BALANCED
+- Rank > 500k → AGGRESSIVE (seek differentials, accept variance)
+All decisions MUST align with this mode and label risk level.
 
----
+CAPTAINCY-FIRST PLANNING (CRITICAL):
+Before transfers, identify the best captaincy options for the next 3 GWs.
+If a transfer significantly improves captaincy EV, it takes priority over all other upgrades.
 
-## 1. **Injury & Availability Report**
-- **MANDATORY SECTION**: List ALL players with injury concerns, fitness doubts, or availability issues.
-- For each flagged player, include:
-  - Status code (a=available, d=doubtful, i=injured, u=unavailable, s=suspended, n=not in squad)
-  - Chance of playing percentage (if available)
-  - Latest news/injury update
-  - **URGENCY LEVEL**: Critical (must transfer), High (transfer recommended), Medium (monitor), Low (likely to play)
+MINUTES SECURITY MODEL:
+Classify players as LOCK / PROBABLE / RISKY / UNRELIABLE.
+Avoid starting more than one RISKY player.
+Never captain RISKY or UNRELIABLE players.
 
----
+FIXTURE WINDOW ANALYSIS:
+Identify teams whose fixtures improve or worsen after 2–3 GWs.
+Prefer early entry into strong runs and timely exits before difficulty spikes.
+Label players as BUY NOW / HOLD / SELL SOON.
 
-## 2. **Potential Replacements for Current Squad**
-- **MANDATORY SECTION**: For EACH position (GK, DEF, MID, FWD), show the top replacement options available.
-- For injured/flagged players, provide **specific ranked alternatives** with:
-  - Player name, team, price
-  - Price difference vs current player
-  - Form analysis (recent performances)
-  - **Fixture difficulty analysis (next 5 games)** - highlight easy/difficult runs
-  - Why they're a good replacement
-- Even for healthy players, show potential upgrades/sideways moves if they improve the squad.
-- Format: **Position → Current Player(s) → Replacement Options (ranked 1-3)**
+TRANSFER DISCIPLINE:
+For each recommended transfer, explicitly justify:
+- What happens if the manager does nothing
+- Downside risk of the move
+- GW horizon where the transfer pays back
+Reject sideways or low-EV transfers.
 
----
+OWNERSHIP HEURISTICS:
+Infer ownership archetypes (high / medium / low).
+In AGGRESSIVE mode, prioritize low-EO differentials with upside.
 
-## 3. **Optimized 15-Man Squad (Based on Current Squad Only)**
-- Evaluate the user's existing 15 players.
-- Identify who should *remain*, who is *upgradeable*, and who is a *priority sell*.
-- **Highlight injured/unavailable players clearly** with their status.
-- Present the optimized final squad after applying 0–5 recommended transfers.
-- Format each player as: **Name — Position — Team — Price — Form — Status — Reasoning (1 sentence)**.
-- Respect squad constraints (2 GK, 5 DEF, 5 MID, 3 FWD) and the user's bank + transfer limits.
-
----
-
-## 4. **Captain & Vice-Captain**
-- Recommend the strongest captain and vice-captain *from the user's optimized squad*.
-- **Ensure both are fit and likely to play**.
-- Justify with form, fixture quality, xGI/xCS potential, and minutes security.
+### OUTPUT (STRICT MARKDOWN)
 
 ---
 
-## 5. **Best Starting XI**
-- Select the optimal formation among:
-  **3-4-3, 3-5-2, 4-4-2, 4-5-1, 5-3-2, 5-4-1**
-- **Exclude injured/doubtful players from the starting XI**.
-- Prioritize maximum expected points, fixture difficulty, and rotation risk.
-- Clearly list XI in order from GK → FWD.
+## 1. Injury & Availability Report
+List ALL flagged players with status, chance of playing, news, and URGENCY LEVEL.
 
 ---
 
-## 6. **Bench Order**
-- Rank all four bench players with a short justification (fitness, fixture, rotation probability).
-- **Flag any bench players who are injured/unavailable**.
+## 2. Captaincy Outlook (Next 3 GWs)
+Rank top captain and vice-captain options from the squad.
+Explain upside, fixture quality, and minutes security.
 
 ---
 
-## 7. **Transfer Recommendations (0–5 Moves)**
-- **PRIORITY: Address injured/unavailable players first**.
-- Base all decisions on the user's existing squad.
-- Inputs:
-  - Free Transfers: **{data["team"].get("free_transfers", 1)}**
-  - Bank: **£{data["team"].get("bank", 0) / 10:.1f}M**
-  - Extra transfers cost -4 each.
-- Provide:
-  1. **Players Out** (injured/flagged players FIRST, then underperformers)
-  2. **Specific Replacement Options** (ranked with exact names from the available players list)
-  3. **Net cost**, total spend, and whether it fits the bank.
-- Judge players using:
-  - **INJURY STATUS** (most important)
-  - **NEXT 5 FIXTURES** (analyze fixture difficulty - use the provided fixture data showing opponent, home/away, and difficulty rating)
-  - last 5 GWs form
-  - fixture difficulty (home/away + opponent)
-  - expected minutes
-  - goals/assists/saves/clean sheets
-  - ppm (value)
-  - rotation risk
-  - long-term upside based on fixture run
+## 3. Transfer Recommendations (0–5 Moves)
+Priority order:
+1. Injured/unavailable players
+2. Captaincy EV upgrades
+3. Fixture swing exploitation
+
+Include players OUT / IN, net cost, bank fit, and EV justification.
 
 ---
 
-## 8. **Key Insights for This Squad**
-Provide a concise yet detailed bullet list summarizing:
-- **Injury concerns and their impact**
-- Form streaks (hot/cold players)
-- Fixture clusters (strong/weak patches)
-- Any rotation risks
-- Underpriced or undervalued assets in the squad
-- Spots where the team is structurally weak or imbalanced
+## 4. Optimized 15-Man Squad
+Show final squad after transfers.
+Highlight priority sells and structural weaknesses.
+
+---
+
+## 5. Best Starting XI & Formation
+Select optimal formation.
+Exclude injured/doubtful players.
+
+---
+
+## 6. Bench Order
+Rank bench by auto-sub priority and reliability.
+
+---
+
+## 7. Key Insights & Risks
+Summarize:
+- Injury impact
+- Fixture swings
+- Rotation risk
+- Differentials
+
+---
+
+## 8. Final Decision Summary (MANDATORY TABLE)
+Transfers | Captain | Formation | Key Risk | Expected Outcome
+
+---
+
+## 9. Contingency Plan
+If a recommended player is benched or injured pre-deadline, provide emergency pivots.
 
 ---
 
@@ -286,31 +290,16 @@ Provide a concise yet detailed bullet list summarizing:
 - Next 5 Fixtures by Team: {fixtures_sum_str}
 - Top Replacement Options by Position: {top_players_str}
 
-**FIXTURE DATA FORMAT:**
-Each team has up to 5 upcoming fixtures with:
-- gw: gameweek number
-- opp: opponent team short name
-- home: true if home game, false if away
-- diff: opponent difficulty (1=easiest, 5=hardest)
+Fixture difficulty: 1=easiest, 5=hardest. Prefer lower difficulty and home games.
 
-**PLAYER STATUS CODES:**
-- a = available
-- d = doubtful
-- i = injured
-- u = unavailable
-- s = suspended
-- n = not in squad
-
-**CRITICAL: Analyze the next 5 fixtures for each team when making transfer recommendations. Players with easier upcoming fixtures (lower diff ratings, home games) should be prioritized over those with difficult runs.**
-
-**Your output must be concise, direct, and highly actionable. Always provide specific player names for replacements, not generic suggestions.**
+Make firm decisions. Avoid hedging language. If options are close, explain why.
 """
 
     response = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
-        max_tokens=4000,
+        max_completion_tokens=4000,
     )
 
     return response.choices[0].message.content

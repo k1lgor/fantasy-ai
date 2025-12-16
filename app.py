@@ -14,7 +14,7 @@ st.markdown(
 )
 
 st.markdown('<h1 class="main-header">⚽ FPL AI Assistant</h1>', unsafe_allow_html=True)
-st.markdown("**GPT-4o powered squad suggestions | Live FPL data**")
+st.markdown("**GPT-5 powered squad suggestions | Live FPL data**")
 
 # Sidebar
 with st.sidebar:
@@ -24,7 +24,7 @@ with st.sidebar:
         value="6589598",
         help="fantasy.premierleague.com/entry/{ID}",
     )
-    model = st.selectbox("GPT Model", ["gpt-4o", "gpt-4o-mini"])
+    model = st.selectbox("GPT Model", ["gpt-5.2", "gpt-5.1"])
 
     st.header("📖 Quick Start")
     st.markdown(
