@@ -20,7 +20,7 @@ def get_openai_client() -> openai.OpenAI:
 
 def generate_squad_recommendation(team_id: int, model: str = "gpt-5.2") -> str:
     """
-    Fetch FPL data and use GPT-4o to generate squad recommendations.
+    Fetch FPL data and use GPT-5 to generate squad recommendations.
 
     Args:
         team_id: FPL manager team ID
@@ -53,11 +53,20 @@ def generate_squad_recommendation(team_id: int, model: str = "gpt-5.2") -> str:
                 "pos": ["GK", "DEF", "MID", "FWD"][p["element_type"] - 1],
                 "form": p["form"],
                 "points": p["total_points"],
+                "ppg": p["points_per_game"],
                 "cost": p["now_cost"] / 10,
                 "ep": p["ep_this"],
                 "minutes": p["minutes"],
+                "starts": p.get("starts", 0),
                 "goals": p["goals_scored"],
                 "assists": p["assists"],
+                "xg": p.get("expected_goals", "0"),
+                "xa": p.get("expected_assists", "0"),
+                "xgi90": p.get("expected_goal_involvements_per_90", "0"),
+                "xgc90": p.get("expected_goals_conceded_per_90", "0"),
+                "ict": p["ict_index"],
+                "threat": p["threat"],
+                "creativity": p["creativity"],
                 "status": p.get("status", "a"),
                 "news": p.get("news", ""),
             }
@@ -67,6 +76,7 @@ def generate_squad_recommendation(team_id: int, model: str = "gpt-5.2") -> str:
 
     # Current squad with injury status
     squad_ids = [p["element"] for p in data["picks"]["picks"]]
+    squad_history = data.get("squad_history", {})
     current_players = [
         {
             "id": el["id"],
@@ -75,10 +85,24 @@ def generate_squad_recommendation(team_id: int, model: str = "gpt-5.2") -> str:
             "pos": ["GK", "DEF", "MID", "FWD"][el["element_type"] - 1],
             "form": el["form"],
             "points": el["total_points"],
+            "ppg": el["points_per_game"],
             "cost": el["now_cost"] / 10,
             "status": el.get("status", "a"),
             "news": el.get("news", ""),
             "chance_of_playing": el.get("chance_of_playing_next_round"),
+            "ict": el.get("ict_index"),
+            "xg": el.get("expected_goals", "0"),
+            "xa": el.get("expected_assists", "0"),
+            "xgi90": el.get("expected_goal_involvements_per_90", "0"),
+            "xgc90": el.get("expected_goals_conceded_per_90", "0"),
+            "minutes": el.get("minutes", 0),
+            "starts": el.get("starts", 0),
+            "threat": el.get("threat", "0"),
+            "creativity": el.get("creativity", "0"),
+            "recent_pts": [h["total_points"] for h in squad_history.get(el["id"], [])][
+                -4:
+            ],
+            "ep": el.get("ep_this"),
         }
         for el in elements
         if el["id"] in squad_ids
@@ -131,24 +155,34 @@ def generate_squad_recommendation(team_id: int, model: str = "gpt-5.2") -> str:
         for team_id, fixtures in team_fixtures.items()
         if team_id in team_id_map
     }
+
+    # Check for Double Gameweeks (DGW) and Blank Gameweeks (BGW)
+    schedule_notes = []
+    for team_id, fixtures in team_fixtures.items():
+        team_name = team_id_map.get(team_id, f"Team {team_id}")
+        gw_counts = {}
+        for f in fixtures:
+            gw = f["gw"]
+            gw_counts[gw] = gw_counts.get(gw, 0) + 1
+
+        for gw, count in gw_counts.items():
+            if count > 1:
+                schedule_notes.append(
+                    f"DGW ALERT: {team_name} plays {count} times in GW{gw}"
+                )
+
+    dgw_bgw_str = json.dumps(schedule_notes) if schedule_notes else "None"
     fixtures_sum_str = json.dumps(fixtures_by_team, separators=(",", ":"))
+
+    # Chip Strategy
+    chips_used = [c["name"] for c in data.get("history", {}).get("chips", [])]
+    all_chips = {"wildcard", "freehit", "bboost", "3xc"}
+    remaining_chips = list(all_chips - set(chips_used))
+    chips_str = json.dumps(remaining_chips, separators=(",", ":"))
 
     bank = data["team"].get("last_deadline_bank", 0) / 10
     squad_value = data["team"].get("last_deadline_value", 1000) / 10
     free_transfers = 1  # Approximate, API limited
-
-    team_str = json.dumps(
-        {
-            "rank": data["team"].get("rank"),
-            "name": data["team"].get("name"),
-            "active_chip": data["team"].get("active_chip"),
-            "squad_value_M": round(squad_value, 1),
-            "bank_M": round(bank, 1),
-            "free_transfers": free_transfers,
-        },
-        separators=(",", ":"),
-    )
-    picks_str = json.dumps({"picks": data["picks"]["picks"]}, separators=(",", ":"))
 
     team_str = json.dumps(
         {
@@ -178,91 +212,134 @@ def generate_squad_recommendation(team_id: int, model: str = "gpt-5.2") -> str:
 
     prompt = f"""You are an elite Fantasy Premier League decision engine.
 
-PRIMARY OBJECTIVE:
-Maximize expected total points over the next 5 gameweeks.
+### PRIMARY OBJECTIVE:
+Maximize expected total points over the next gameweek.
+**MANTRA**: "Points are Points." A -4 hit that gains +6 points is a NET GAIN. Do not fear hits.
 
-SECONDARY OBJECTIVES (tie-breakers, in order):
+### SECONDARY OBJECTIVES (tie-breakers, in order):
 1. Captaincy upside and ceiling
 2. Minutes security
 3. Fixture swing exploitation
 4. Squad flexibility for future GWs
 5. Value preservation (avoid price drops)
 
-RANK-AWARE STRATEGY:
+### RANK-AWARE STRATEGY:
 Determine strategic posture from rank:
 - Rank < 50k → DEFENSIVE (block EO, minimize variance)
 - Rank 50k–500k → BALANCED
 - Rank > 500k → AGGRESSIVE (seek differentials, accept variance)
 All decisions MUST align with this mode and label risk level.
 
-CAPTAINCY-FIRST PLANNING (CRITICAL):
+### CAPTAINCY-FIRST PLANNING (CRITICAL):
 Before transfers, identify the best captaincy options for the next 3 GWs.
 If a transfer significantly improves captaincy EV, it takes priority over all other upgrades.
 
-MINUTES SECURITY MODEL:
-Classify players as LOCK / PROBABLE / RISKY / UNRELIABLE.
-Avoid starting more than one RISKY player.
-Never captain RISKY or UNRELIABLE players.
+### RUTHLESS FLOP & RISING STAR IDENTIFICATION (STRICT THRESHOLDS):
+Analyze `recent_pts` (last 4 matches) and `form` against these strict rules:
+- **FLOPS (SELL IMMEDIATELY)**: A player is a total FLOP if they have scored **≤ 7 total points in the last 3 matches** OR **≤ 10 total points in the last 4 matches**.
+- **RISING STARS (MUST BUY)**: A player is a RISING STAR if they have scored **≥ 18 total points in the last 3 matches** OR **≥ 24 total points in the last 4 matches**.
+- **NO EXCUSES**: If a player is a Flop, sell them immediately even for a hit. Stop chasing "potential" in players who fail the numeric test.
 
-FIXTURE WINDOW ANALYSIS:
+### TRANSFER DISCIPLINE & AGGRESSIVE HIT AUTHORIZATION:
+- **FREE TRANSFERS**: You have {free_transfers} free transfer(s).
+- **AUTHORIZATION FOR MULTIPLE HITS**: You are **STRONGLY AUTHORIZED AND ENCOURAGED** to suggest **multiple transfers involving hits (-4, -8, or even -12)**.
+- **WHEN TO TAKE HITS**:
+    1. To remove a FLOP and bring in a RISING STAR (almost always worth -4).
+    2. To fix a structural issue (e.g., no playing GK).
+    3. To bring in a Captaincy option with significantly higher EV than current options.
+- **STRATEGY**: It is mathematically better to take a -8 hit and score 50 points (Net 42) than to save free transfers and score 35 points.
+- **For each recommended transfer, explicitly calculate the "Hit vs Payoff"**: e.g., "Taking a -4 here pays off if X scores > 4, which is likely because..."
+
+### PERFORMANCE ANALYSIS & PREDICTION:
+- **Sustainable Rise**: `form` > `ppg` AND `xgi90` is high (The perfect buy).
+- **Explosive Differentials**: High `xgi90` / `xgc90` but low total points (The sneaky buy).
+- **Sneaky Buy**: Low `xgi90` / `xgc90` but high total points (The sneaky buy).
+- **Sustainable Decline**: `form` < `ppg` AND `xgi90` is low (The perfect sell).
+- **Minutes Trend**: Prioritize players with increasing `starts`.
+
+### CAPTAINCY SIMULATION:
+Simulate the top 3 captaincy paths for the next 3 GWs. Choose the one with the highest ceiling.
+
+### ADVANCED STATS UTILIZATION:
+Use ICT Index to validate decisions:
+- High ICT + Low Points = Teammates finishing poorly or bad luck. Keep/Buy.
+- Low ICT + High Points = "Points from Nothing" (Unsustainable). Sell High.
+
+### FIXTURE WINDOW ANALYSIS:
 Identify teams whose fixtures improve or worsen after 2–3 GWs.
 Prefer early entry into strong runs and timely exits before difficulty spikes.
 Label players as BUY NOW / HOLD / SELL SOON.
 
-TRANSFER DISCIPLINE:
-For each recommended transfer, explicitly justify:
-- What happens if the manager does nothing
-- Downside risk of the move
-- GW horizon where the transfer pays back
-Reject sideways or low-EV transfers.
-
-OWNERSHIP HEURISTICS:
-Infer ownership archetypes (high / medium / low).
+### OWNERSHIP HEURISTICS:
+Infer ownership archetypes (high / medium / low EO).
 In AGGRESSIVE mode, prioritize low-EO differentials with upside.
+
+### MINUTES SECURITY MODEL:
+Classify players as LOCK / PROBABLE / RISKY / UNRELIABLE.
+Avoid starting more than one RISKY player. Never captain RISKY or UNRELIABLE players.
+
+### CHIP STRATEGY (CRITICAL):
+You have these chips remaining: {chips_str}.
+- If Wildcard is available and squad has 4+ issues (injuries/weak links/poor form), play it.
+- If a confirmed Double Gameweek (DGW) is imminent and 3xc/BB is available, plan for it.
+- If Free Hit is available, save for blank gameweeks or massive DGWs.
+Explicitly recommend ONE strategy: "Save Chips" or "Play [Chip Name]".
 
 ### OUTPUT (STRICT MARKDOWN)
 
 ---
 
-## 1. Injury & Availability Report
+## 1. Chip Strategy & Schedule
+- **Remaining Chips**: {chips_str}
+- **Double/Blank GW Alerts**: {dgw_bgw_str}
+- **Strategy Code**: [SAVE / WILDCARD / FREE HIT / TC / BB]
+- **Reasoning**: One sentence on why this is the best strategy now.
+
+---
+
+## 2. Injury & Availability Report
 List ALL flagged players with status, chance of playing, news, and URGENCY LEVEL.
 
 ---
 
-## 2. Captaincy Outlook (Next 3 GWs)
+## 3. Captaincy Outlook (Next 3 GWs)
 Rank top captain and vice-captain options from the squad.
 Explain upside, fixture quality, and minutes security.
 
 ---
 
-## 3. Transfer Recommendations (0–5 Moves)
+## 4. Transfer Recommendations (0–5 Moves)
+**Aggressiveness Level**: [High/Medium/Low] based on rank.
+**Hit Budget**: Willingness to take hits this week.
+
 Priority order:
 1. Injured/unavailable players
-2. Captaincy EV upgrades
-3. Fixture swing exploitation
+2. **FLOPS OUT / RISING STARS IN**
+3. Captaincy EV upgrades
+4. Fixture swing exploitation
 
-Include players OUT / IN, net cost, bank fit, and EV justification.
+Include players OUT / IN, net cost, bank fit, and **Estimated Points Gain vs Hit Cost**.
 
 ---
 
-## 4. Optimized 15-Man Squad
+## 5. Optimized 15-Man Squad
 Show final squad after transfers.
 Highlight priority sells and structural weaknesses.
 
 ---
 
-## 5. Best Starting XI & Formation
+## 6. Best Starting XI & Formation
 Select optimal formation.
 Exclude injured/doubtful players.
 
 ---
 
-## 6. Bench Order
+## 7. Bench Order
 Rank bench by auto-sub priority and reliability.
 
 ---
 
-## 7. Key Insights & Risks
+## 8. Key Insights & Risks
 Summarize:
 - Injury impact
 - Fixture swings
@@ -271,12 +348,12 @@ Summarize:
 
 ---
 
-## 8. Final Decision Summary (MANDATORY TABLE)
-Transfers | Captain | Formation | Key Risk | Expected Outcome
+## 9. Final Decision Summary (MANDATORY TABLE)
+Transfers | Hits | Captain | Formation | Key Risk | Expected Outcome
 
 ---
 
-## 9. Contingency Plan
+## 10. Contingency Plan
 If a recommended player is benched or injured pre-deadline, provide emergency pivots.
 
 ---
@@ -288,6 +365,8 @@ If a recommended player is benched or injured pre-deadline, provide emergency pi
 - Current Squad: {current_players_str}
 - Injured/Flagged Players: {injured_str}
 - Next 5 Fixtures by Team: {fixtures_sum_str}
+- DGW/BGW Alerts: {dgw_bgw_str}
+- Remaining Chips: {chips_str}
 - Top Replacement Options by Position: {top_players_str}
 
 Fixture difficulty: 1=easiest, 5=hardest. Prefer lower difficulty and home games.
@@ -301,5 +380,5 @@ Make firm decisions. Avoid hedging language. If options are close, explain why.
         temperature=0.3,
         max_completion_tokens=4000,
     )
-
+    
     return response.choices[0].message.content
