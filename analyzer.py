@@ -216,6 +216,9 @@ def generate_squad_recommendation(team_id: int, model: str = "gpt-5.2") -> str:
 Maximize expected total points over the next gameweek.
 **MANTRA**: "Points are Points." A -4 hit that gains +6 points is a NET GAIN. Do not fear hits.
 
+### TEAM CONSTRAINT (CRITICAL):
+**CRITICAL RULE**: You CANNOT have more than 3 players from the same team in your 15-man squad!
+
 ### SECONDARY OBJECTIVES (tie-breakers, in order):
 1. Captaincy upside and ceiling
 2. Minutes security
@@ -308,7 +311,7 @@ Explain upside, fixture quality, and minutes security.
 
 ---
 
-## 4. Transfer Recommendations (0–5 Moves)
+## 4. Transfer Recommendations
 **Aggressiveness Level**: [High/Medium/Low] based on rank.
 **Hit Budget**: Willingness to take hits this week.
 
@@ -329,12 +332,12 @@ Highlight priority sells and structural weaknesses.
 ---
 
 ## 6. Best Starting XI & Formation
-Select optimal formation.
-Exclude injured/doubtful players.
-
----
-
-## 7. Bench Order
+Select optimal formation based on FIXTURE DIFFICULTY, not just "Template 3-4-3".
+- **DYNAMIC FORMATION**:
+    - If your 4th defender has a cleaner sheet probability (e.g. Home vs Relegation Candidate) than your 5th midfielder/3rd forward (e.g. Away vs Top 4), **SWITCH to a 4-at-the-back or 5-at-the-back formation**.
+    - Do not blindly force a 3-4-3. Points are points. A defender with a 40% CS chance > An attacker with < 30% return chance.
+- **TEAM LOCK RULE**: Avoid starting 3 players from the same team unless the fixture is 'Easy' (FDR ≤ 2).
+- **Bench Optimization**: Order bench by highest expected points. Bench players from teams with earlier kick-offs if unsure of lineup.
 Rank bench by auto-sub priority and reliability.
 
 ---
@@ -380,5 +383,5 @@ Make firm decisions. Avoid hedging language. If options are close, explain why.
         temperature=0.3,
         max_completion_tokens=4000,
     )
-    
+
     return response.choices[0].message.content
