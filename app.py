@@ -41,9 +41,10 @@ if col1.button(
 ):
     with st.spinner("Fetching FPL data & GPT analysis..."):
         try:
-            recs = generate_squad_recommendation(team_id, model)
+            recs, gw = generate_squad_recommendation(team_id, model)
             st.session_state.recs = recs
             st.session_state.team_id = team_id
+            st.session_state.gw = gw
             st.success("✅ Complete!")
         except Exception as e:
             st.error(f"❌ {e}")
@@ -59,7 +60,7 @@ if "recs" in st.session_state:
         st.download_button(
             "💾 Download .md",
             data=st.session_state.recs,
-            file_name=f"fpl_recs_team_{st.session_state.team_id}.md",
+            file_name=f"fpl_recs_team_{st.session_state.team_id}_gw{st.session_state.get('gw', 'X')}.md",
         )
 
 
