@@ -1,22 +1,17 @@
 # FPL AI Assistant 🏆
 
-Intelligent FPL manager tool using **GPT-4o** for optimal squads, transfers & insights. Automatically tracks injuries, analyzes fixture difficulty over 5 gameweeks, and provides specific, actionable transfer recommendations.
+Intelligent FPL manager tool using **GPT-5** for optimal squads, transfers & insights. Automatically tracks injuries, analyzes fixture difficulty over 5 gameweeks, and provides specific, actionable transfer recommendations.
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://fantasy-ai.streamlit.app)
 
-## ✨ Features
-
-- **Live FPL data** with injury tracking and availability status
-- **5-Game Fixture Analysis** - Analyzes next 5 fixtures per team with difficulty ratings
-- **Injury & Availability Report** - Automatic detection of injured/doubtful players with urgency levels
-- **Potential Replacements** - Specific ranked alternatives for each position with fixture analysis
-- **Optimized 15-Man Squad** (Based on Current Squad Only)
-- **Captain & Vice-Captain** recommendations
-- **Best Starting XI** with optimal formation
-- **Bench Order** prioritization
-- **Transfer Recommendations (0–5 Moves)** - Prioritizes injuries and fixture difficulty
-- **Key Insights** - Form, fixtures, rotation risks, and structural analysis
-- **Streamlit UI** (sidebar settings, download MD)
+- **Rank-Aware Strategy** - Adjusts posture (Defensive/Balanced/Aggressive) based on your overall rank
+- **Strict Flop & Rising Star Detection** - Uses specific mathematical thresholds (recent points vs. xGI) to flag immediate sells and "must-buys"
+- **Hit Authorization & Recovery Formula** - Calculates EV delta to justify -4, -8, or even -12 hits for explosive returns
+- **Smart Calendar Double Gameweek Alerts** - Detects double headers across calendar weeks, even when FPL Gameweek IDs differ
+- **Universal Chip Reset Logic** - Automatically unlocks all chips for the second half of the season (GW20+)
+- **Captaincy Simulation** - Simulates optimal captaincy paths for the next 3 gameweeks
+- **Dynamic Formation Selection** - Optimizes XI based on Clean Sheet probability vs. Attacking Return probability, not just a fixed 3-4-3
+- **Streamlit UI** (sidebar settings, model selection, download MD)
 
 ## 🧠 How It Works
 
@@ -34,16 +29,18 @@ Intelligent FPL manager tool using **GPT-4o** for optimal squads, transfers & in
 - Considers home/away advantage in recommendations
 - Prioritizes players with favorable fixture runs
 
-### Transfer Recommendations
+### Transfer & Hit Discipline
 
-The AI prioritizes transfers based on:
+The AI follows a strict decision engine:
 
-1. **Injury Status** (most important)
-2. **Next 5 Fixtures** (difficulty analysis)
-3. Recent form (last 5 gameweeks)
-4. Expected minutes and rotation risk
-5. Goals, assists, clean sheets
-6. Price per million value
+1. **Hit Recovery Formula**: Authorizes hits ONLY if `(Cost of Hit) / EV_Delta <= 2.0`.
+2. **Flop Detection**: Sells players with < 6 pts in last 3 GWs (unless xGI is high).
+3. **Rising Star Recognition**: Prioritizes players with > 18 pts in last 3 GWs or elite `xGI90`.
+4. **Rank posture**:
+   - < 50k: **Defensive** (Block EO)
+   - 50k-500k: **Balanced**
+   - > 500k: **Aggressive** (Seek Differentials)
+5. **Price Trend Rules**: Checks `price_trend` to bank value or wait for updates.
 
 ### Replacement Suggestions
 
@@ -134,21 +131,21 @@ OPENAI_API_KEY = sk-your-key
 
 ## 📱 UI
 
-- Sidebar: Team ID, GPT model (4o/mini)
-- Generate button → Markdown recs + download/code
+- Sidebar: Team ID, GPT model selection (`gpt-5.2`, `gpt-5.1`)
+- Generate button → Markdown recs + download button
 
 ## 🔧 Files
 
-- [`app.py`](app.py) - Streamlit UI
-- [`fpl_data.py`](fpl_data.py) - FPL API
-- [`analyzer.py`](analyzer.py) - GPT prompts/data summary
-- [`requirements.txt`](requirements.txt) - Deps
+- [`app.py`](app.py) - Streamlit UI & Orchestration
+- [`fpl_data.py`](fpl_data.py) - FPL API data fetching & preprocessing
+- [`analyzer.py`](analyzer.py) - Core AI logic, prompt engineering, and metric calculation
+- [`requirements.txt`](requirements.txt) - Dependency list
 
 ## 🛠 Customize
 
-- Prompts: `analyzer.py`
-- Data: `fpl_data.py`
-- UI: `app.py`
+- Prompts & Thresholds: `analyzer.py`
+- Data Fetching: `fpl_data.py`
+- UI Components: `app.py`
 
 ## ⚠️ Limits
 
